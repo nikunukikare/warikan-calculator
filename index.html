@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#FEF7FF">
+<meta name="description" content="人数と端数処理を設定して、簡単に割り勘を計算できます。">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png" type="image/png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<title>割り勘電卓</title>
+<style>
+:root{
+  --p:#6750A4;--onp:#fff;--pc:#EADDFF;--onpc:#21005D;--sc:#E8DEF8;--onsc:#1D192B;
+  --surf:#FEF7FF;--s1:#F3EDF7;--os:#1D1B20;--osv:#49454F;--out:#79747E;
+  box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--surf);color:var(--os);font-family:Roboto,"Noto Sans JP",-apple-system,"Hiragino Sans",sans-serif;min-height:100vh;transition:background .3s}
+.wrap{max-width:460px;margin:0 auto;padding:0 16px 32px}
+header{padding:20px 8px 12px}
+header h1{margin:0;font-size:28px;font-weight:400;line-height:36px}
+header p{margin:2px 0 0;font-size:14px;color:var(--osv)}
+.card{background:var(--s1);border-radius:28px;padding:20px;margin-bottom:12px}
+.lbl{font-size:12px;letter-spacing:.5px;color:var(--osv);margin:0 0 8px 4px}
+.field{display:flex;align-items:center;background:var(--surf);border-bottom:2px solid var(--out);border-radius:12px 12px 0 0;padding:6px 16px;transition:border-color .2s}
+.field:focus-within{border-color:var(--p)}
+.field span{font-size:28px;color:var(--osv);margin-right:6px}
+.field input{flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--os);font:inherit;font-size:32px;padding:6px 0}
+.field input::placeholder{color:var(--out)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.ib{width:56px;height:56px;border-radius:50%;border:0;background:var(--sc);color:var(--onsc);font-size:28px;cursor:pointer;transition:transform .1s,filter .15s}
+.ib:active{transform:scale(.92);filter:brightness(.94)}
+.num{font-size:48px;line-height:56px;font-weight:400}
+.num small{font-size:16px;color:var(--osv);margin-left:4px}
+.chips{display:flex;gap:8px;flex-wrap:wrap}
+.chip{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--out);background:transparent;color:var(--osv);font:inherit;font-size:14px;cursor:pointer;transition:background .2s}
+.chip.on{background:var(--sc);color:var(--onsc);border-color:transparent}
+.chip.on::before{content:"✓ "}
+.hint{font-size:12px;color:var(--osv);margin:10px 4px 0}
+.result{background:var(--pc);color:var(--onpc);text-align:center;padding:28px 20px}
+.result .t{font-size:14px;letter-spacing:.5px}
+.big{font-size:56px;line-height:64px;font-weight:400;margin:6px 0 10px;word-break:break-all}
+.detail{font-size:14px;line-height:22px;opacity:.85}
+.theme{display:flex;gap:14px;justify-content:center;margin-top:20px}
+.sw{width:36px;height:36px;border-radius:50%;border:3px solid transparent;cursor:pointer;padding:0}
+.sw.on{border-color:var(--os)}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header><h1>割り勘電卓</h1><p>人数で割って、端数もきれいに</p></header>
+
+<div class="card">
+  <p class="lbl">合計金額</p>
+  <div class="field"><span>¥</span><input id="total" type="number" inputmode="numeric" placeholder="24800"></div>
+</div>
+
+<div class="card">
+  <p class="lbl">人数</p>
+  <div class="row">
+    <button class="ib" id="minus" aria-label="減らす">−</button>
+    <div class="num"><span id="people">4</span><small>人</small></div>
+    <button class="ib" id="plus" aria-label="増やす">＋</button>
+  </div>
+</div>
+
+<div class="card">
+  <p class="lbl">端数の切り上げ</p>
+  <div class="chips" id="round">
+    <button class="chip on" data-v="1">なし</button>
+    <button class="chip" data-v="10">10円</button>
+    <button class="chip" data-v="100">100円</button>
+    <button class="chip" data-v="500">500円</button>
+  </div>
+  <p class="hint">切り上げた分の余りは幹事へ。</p>
+</div>
+
+<div class="card result">
+  <div class="t">1人あたり</div>
+  <div class="big" id="per">¥0</div>
+  <div class="detail" id="detail"></div>
+</div>
+
+<div class="theme" id="theme"></div>
+</div>
+
+<script>
+const PAL={
+ purple:{l:{p:"#6750A4",onp:"#FFFFFF",pc:"#EADDFF",onpc:"#21005D",sc:"#E8DEF8",onsc:"#1D192B",surf:"#FEF7FF",s1:"#F3EDF7",os:"#1D1B20",osv:"#49454F",out:"#79747E"},
+         d:{p:"#D0BCFF",onp:"#381E72",pc:"#4F378B",onpc:"#EADDFF",sc:"#4A4458",onsc:"#E8DEF8",surf:"#141218",s1:"#211F26",os:"#E6E0E9",osv:"#CAC4D0",out:"#938F99"}},
+ blue:{l:{p:"#415F91",onp:"#FFFFFF",pc:"#D6E3FF",onpc:"#001B3E",sc:"#DBE2F9",onsc:"#141B2C",surf:"#F9F9FF",s1:"#EDEDF4",os:"#191C20",osv:"#44474E",out:"#74777F"},
+       d:{p:"#AAC7FF",onp:"#0A305F",pc:"#284777",onpc:"#D6E3FF",sc:"#3E4759",onsc:"#DBE2F9",surf:"#111318",s1:"#1D2024",os:"#E2E2E9",osv:"#C4C6D0",out:"#8E9099"}},
+ green:{l:{p:"#3B6939",onp:"#FFFFFF",pc:"#BCF0B4",onpc:"#002204",sc:"#D7E8CD",onsc:"#131F0E",surf:"#F8FAF0",s1:"#ECEFE5",os:"#191D17",osv:"#43483F",out:"#73796E"},
+        d:{p:"#A1D39A",onp:"#0A390F",pc:"#235024",onpc:"#BCF0B4",sc:"#3B4B38",onsc:"#D7E8CD",surf:"#10140F",s1:"#1C201A",os:"#E1E4DA",osv:"#C3C8BB",out:"#8D9387"}},
+ orange:{l:{p:"#8B5000",onp:"#FFFFFF",pc:"#FFDCBE",onpc:"#2C1600",sc:"#F3DFD1",onsc:"#2A1708",surf:"#FFF8F5",s1:"#F8EBE2",os:"#211A14",osv:"#51443A",out:"#84746A"},
+         d:{p:"#FFB77C",onp:"#4A2800",pc:"#693C00",onpc:"#FFDCBE",sc:"#564334",onsc:"#F3DFD1",surf:"#19120C",s1:"#261E17",os:"#EFE0D5",osv:"#D5C3B5",out:"#9D8E81"}}
+};
+const mq=matchMedia("(prefers-color-scheme: dark)");
+let seed="purple";
+try{seed=localStorage.getItem("seed")||"purple"}catch(e){}
+if(!PAL[seed])seed="purple";
+function applyTheme(){
+  const c=PAL[seed][mq.matches?"d":"l"], r=document.documentElement.style;
+  for(const k in c)r.setProperty("--"+k,c[k]);
+  document.querySelector('meta[name=theme-color]').content=c.surf;
+  document.querySelectorAll(".sw").forEach(s=>s.classList.toggle("on",s.dataset.k===seed));
+}
+const th=document.getElementById("theme");
+for(const k in PAL){
+  const b=document.createElement("button");
+  b.className="sw";b.dataset.k=k;b.style.background=PAL[k].l.p;b.setAttribute("aria-label",k);
+  b.onclick=()=>{seed=k;try{localStorage.setItem("seed",k)}catch(e){};applyTheme()};
+  th.appendChild(b);
+}
+mq.addEventListener("change",applyTheme);
+
+let people=4,unit=1;
+const $=id=>document.getElementById(id);
+const yen=n=>"¥"+n.toLocaleString("ja-JP");
+function calc(){
+  const t=Math.max(0,parseInt($("total").value)||0);
+  $("people").textContent=people;
+  const per=Math.ceil(t/people/unit)*unit, sum=per*people;
+  $("per").textContent=yen(per);
+  let d=t?`合計 ${yen(t)} ÷ ${people}人<br>集金合計 ${yen(sum)}`:"金額を入力してください";
+  if(t&&sum>t)d+=`<br>余り ${yen(sum-t)}`;
+  $("detail").innerHTML=d;
+}
+$("total").addEventListener("input",calc);
+$("plus").onclick=()=>{people=Math.min(99,people+1);calc()};
+$("minus").onclick=()=>{people=Math.max(1,people-1);calc()};
+document.querySelectorAll("#round .chip").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#round .chip").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");unit=+b.dataset.v;calc();
+});
+applyTheme();calc();
+</script>
+<script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(err => console.error("Service Worker registration failed:", err));
+  });
+}
+</script>
+</body>
+</html>
